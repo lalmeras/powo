@@ -12,6 +12,7 @@ with open('HISTORY.rst') as history_file:
 requirements = [
     'ansible==2.1.0.0',
     'Click>=6.0',
+    'plumbum>=1.6.2',
 ]
 
 test_requirements = [
