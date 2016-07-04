@@ -33,7 +33,7 @@ setup(
                  'powo'},
     entry_points={
         'console_scripts': [
-            'powo=powo.cli:main'
+            'powo=powo.ansible:run'
         ]
     },
     include_package_data=True,

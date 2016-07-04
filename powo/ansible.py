@@ -5,27 +5,37 @@ import os.path
 import pkg_resources
 
 from collections import namedtuple
+from ansible.cli import CLI
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars import VariableManager
 from ansible.inventory import Inventory
 from ansible.playbook.play import Play
+from ansible.utils.unicode import to_bytes
 from ansible.executor.task_queue_manager import TaskQueueManager
 from ansible import constants as C
 
+import click
 import plumbum
 
 from .model import PowoPlugin
 
 
-def run():
-    Options = namedtuple('Options', ['connection', 'module_path',
-                                     'forks',
-                                     'become', 'become_method', 'become_user',
-                                     'check'])
-    # initialize needed objects
+@click.command()
+@click.option('--ask-become-pass', '-w', is_flag=True, default=False)
+def run(ask_become_pass, args=None):
+    # load default ansible options
+    parser = CLI.base_parser(connect_opts=True, meta_opts=True, runas_opts=True,
+                             subset_opts=True, check_opts=True, inventory_opts=True,
+                             runtask_opts=True, vault_opts=True, fork_opts=True,
+                             module_opts=True)
+    options = parser.parse_args(['--connection', 'local'])[0]
     variable_manager = VariableManager()
     loader = DataLoader()
+
+    # load powo plugins
     plugins = load_plugins()
+
+    # build roles_path with provided roles path and galaxy folder
     roles_path = [p.roles_path for p in plugins if p.roles_path is not None]
     galaxy_roles = [galaxy_role
                     for plugin in plugins
@@ -41,12 +51,10 @@ def run():
                                         *galaxy_roles)
     C.DEFAULT_ROLES_PATH = roles_path
 
-    options = Options(connection='local',
-                      module_path=None,
-                      forks=100,
-                      become=None, become_method=None, become_user=None,
-                      check=False)
-    passwords = dict(vault_pass='secret')
+    passwords = dict()
+    if ask_become_pass:
+        sudo_pass = click.prompt('Please provide sudo password', hide_input=True)
+        passwords['become_pass'] = to_bytes(sudo_pass)
 
     # create inventory and pass to var manager
     inventory = Inventory(loader=loader,
@@ -61,19 +69,6 @@ def run():
     playbook_path = playbooks[0]
     playbook = loader.load_from_file(playbook_path)[0]
     loader.set_basedir(os.path.dirname(playbook_path))
-    # # create play with tasks
-    # play_source = dict(
-    #         name="Ansible Play",
-    #         hosts='localhost',
-    #         gather_facts='no',
-    #         tasks=[]
-    #         # tasks=[
-    #         #    dict(action=dict(module='shell', args='ls'),
-    #         #         register='shell_out'),
-    #         #    dict(action=dict(module='debug',
-    #         #                     args=dict(msg='{{shell_out.stdout}}')))
-    #         # ]
-    #     )
     play = Play().load(playbook,
                        variable_manager=variable_manager,
                        loader=loader)
