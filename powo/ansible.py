@@ -3,8 +3,8 @@ from __future__ import absolute_import
 
 import os.path
 import pkg_resources
+import sys
 
-from collections import namedtuple
 from ansible.cli import CLI
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars import VariableManager
@@ -60,6 +60,7 @@ def run(ask_become_pass, args=None):
     inventory = Inventory(loader=loader,
                           variable_manager=variable_manager,
                           host_list=['localhost'])
+    variable_manager.extra_vars = {'ansible_python_interpreter': sys.executable}
     variable_manager.set_inventory(inventory)
 
     playbooks = [playbook_path
