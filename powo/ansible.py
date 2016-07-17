@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from __future__ import absolute_import
 
+import os
 import os.path
 import pkg_resources
 import sys
@@ -11,22 +12,59 @@ from ansible.vars import VariableManager
 from ansible.inventory import Inventory
 from ansible.playbook.play import Play
 from ansible.utils.unicode import to_bytes
+from ansible import utils
 from ansible.executor.task_queue_manager import TaskQueueManager
 from ansible import constants as C
 
 import click
 import plumbum
+import yaml
 
 from .model import PowoPlugin
 
 
+# needed if powo launched from a virtualenv so that ansible-galaxy can be found
+display = utils.display.Display()
+old_os_path = os.environ.get('PATH', '')
+os.environ['PATH'] = os.path.dirname(os.path.abspath(__file__)) \
+    + os.pathsep + old_os_path
+base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
 @click.command()
-@click.option('--ask-become-pass', '-w', is_flag=True, default=False)
-def run(ask_become_pass, args=None):
+@click.option('--ask-become-pass', '-w', is_flag=True, default=False,
+              help='ask for sudo password on command-line')
+@click.option('--config', '-c',
+              type=click.Path(exists=False, resolve_path=True),
+              default=os.path.expanduser('~') + '/.powo/config.yml',
+              help='path to custom configuration file')
+@click.option('--quiet', '-q', 'verbosity',
+              flag_value=0, default=False)
+@click.option('--verbose', '-v', 'verbosity',
+              flag_value=4, default=False)
+def run(ask_become_pass, config, verbosity, args=None):
+    os.chdir('/')
+    if verbosity is None:
+        verbosity = 2
+    display.verbosity = verbosity
+    configuration = {
+        'vars': ['~/.powo/vars/config.yml']
+    }
+    try:
+        with open(config, 'r') as stream:
+            configuration.update(yaml.load(stream))
+    except:
+        print('File %s not found' % (config, ))
+    configuration['vars'] = \
+        [os.path.normpath(os.path.join(os.path.dirname(config),
+                                       os.path.expanduser(path)))
+         for path in configuration['vars']]
+
     # load default ansible options
     parser = CLI.base_parser(connect_opts=True, meta_opts=True, runas_opts=True,
-                             subset_opts=True, check_opts=True, inventory_opts=True,
-                             runtask_opts=True, vault_opts=True, fork_opts=True,
+                             subset_opts=True, check_opts=True,
+                             inventory_opts=True, runtask_opts=True,
+                             vault_opts=True, fork_opts=True,
                              module_opts=True)
     options = parser.parse_args(['--connection', 'local'])[0]
     variable_manager = VariableManager()
@@ -50,17 +88,21 @@ def run(ask_become_pass, args=None):
                                         '--roles-path', galaxy_path,
                                         *galaxy_roles)
     C.DEFAULT_ROLES_PATH = roles_path
+    C.DEFAULT_HASH_BEHAVIOUR = 'merge'
 
     passwords = dict()
     if ask_become_pass:
-        sudo_pass = click.prompt('Please provide sudo password', hide_input=True)
+        sudo_pass = click.prompt('Please provide sudo password',
+                                 hide_input=True)
         passwords['become_pass'] = to_bytes(sudo_pass)
 
     # create inventory and pass to var manager
     inventory = Inventory(loader=loader,
                           variable_manager=variable_manager,
                           host_list=['localhost'])
-    variable_manager.extra_vars = {'ansible_python_interpreter': sys.executable}
+    variable_manager.extra_vars = {
+        'ansible_python_interpreter': sys.executable,
+    }
     variable_manager.set_inventory(inventory)
 
     playbooks = [playbook_path
@@ -69,6 +111,7 @@ def run(ask_become_pass, args=None):
                  if plugin.playbooks is not None]
     playbook_path = playbooks[0]
     playbook = loader.load_from_file(playbook_path)[0]
+    playbook['vars_files'].extend(configuration['vars'])
     loader.set_basedir(os.path.dirname(playbook_path))
     play = Play().load(playbook,
                        variable_manager=variable_manager,
@@ -82,7 +125,9 @@ def run(ask_become_pass, args=None):
                   variable_manager=variable_manager,
                   loader=loader,
                   options=options,
-                  passwords=passwords)
+                  passwords=passwords,
+                  stdout_callback='skippy'
+        )
         tqm.run(play)
     finally:
         if tqm is not None:
