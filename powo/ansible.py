@@ -31,9 +31,16 @@ os.environ['PATH'] = os.path.dirname(os.path.abspath(__file__)) \
 base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-@click.command()
-@click.option('--ask-become-pass', '-w', is_flag=True, default=False,
-              help='ask for sudo password on command-line')
+def load_plugins():
+    plugins = []
+    for ep in pkg_resources.iter_entry_points(group='powo_plugin'):
+        value = ep.load()()
+        if isinstance(value, PowoPlugin):
+            plugins.append(value)
+    return plugins
+
+
+@click.group()
 @click.option('--config', '-c',
               type=click.Path(exists=False, resolve_path=True),
               default=os.path.expanduser('~') + '/.powo/config.yml',
@@ -42,7 +49,8 @@ base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
               flag_value=0, default=False)
 @click.option('--verbose', '-v', 'verbosity',
               flag_value=4, default=False)
-def run(ask_become_pass, config, verbosity, args=None):
+@click.pass_context
+def run(ctx, config, verbosity, args=None):
     os.chdir('/')
     if verbosity is None:
         verbosity = 2
@@ -59,7 +67,15 @@ def run(ask_become_pass, config, verbosity, args=None):
         [os.path.normpath(os.path.join(os.path.dirname(config),
                                        os.path.expanduser(path)))
          for path in configuration['vars']]
+    ctx.obj = {}
+    ctx.obj['configuration'] = configuration
 
+
+@run.command()
+@click.option('--ask-become-pass', '-w', is_flag=True, default=False,
+              help='ask for sudo password on command-line')
+@click.pass_context
+def update(ctx, ask_become_pass, **kwargs):
     # load default ansible options
     parser = CLI.base_parser(connect_opts=True, meta_opts=True, runas_opts=True,
                              subset_opts=True, check_opts=True,
@@ -105,14 +121,18 @@ def run(ask_become_pass, config, verbosity, args=None):
     }
     variable_manager.set_inventory(inventory)
 
-    playbooks = [playbook_path
-                 for plugin in plugins
-                 for playbook_path in plugin.playbooks
-                 if plugin.playbooks is not None]
+    plugin = plugins[0]
+    playbooks = plugin.playbooks
     playbook_path = playbooks[0]
     playbook = loader.load_from_file(playbook_path)[0]
-    playbook['vars_files'].extend(configuration['vars'])
+    playbook['vars_files'].extend(ctx.obj['configuration']['vars'])
     loader.set_basedir(os.path.dirname(playbook_path))
+    # plugin can modify some vars before execution
+    pre_play = Play().load(playbook,
+                           variable_manager=variable_manager,
+                           loader=loader)
+    if plugin.on_run is not None:
+        plugin.on_run(ctx, pre_play, variable_manager, loader)
     play = Play().load(playbook,
                        variable_manager=variable_manager,
                        loader=loader)
@@ -134,10 +154,7 @@ def run(ask_become_pass, config, verbosity, args=None):
             tqm.cleanup()
 
 
-def load_plugins():
-    plugins = []
-    for ep in pkg_resources.iter_entry_points(group='powo_plugin'):
-        value = ep.load()()
-        if isinstance(value, PowoPlugin):
-            plugins.append(value)
-    return plugins
+plugins = load_plugins()
+for plugin in plugins:
+    if plugin.decorate_update:
+        plugin.decorate_update(update)
