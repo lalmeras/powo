@@ -7,6 +7,7 @@ import pkg_resources
 import sys
 
 from ansible.cli import CLI
+from ansible.cli.galaxy import GalaxyCLI
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars import VariableManager
 from ansible.inventory import Inventory
@@ -17,7 +18,6 @@ from ansible.executor.task_queue_manager import TaskQueueManager
 from ansible import constants as C
 
 import click
-import plumbum
 import yaml
 
 from .model import PowoPlugin
@@ -100,9 +100,18 @@ def update(ctx, ask_become_pass, **kwargs):
         os.makedirs(galaxy_path)
     if len(galaxy_roles) > 0:
         roles_path.insert(0, galaxy_path)
-        plumbum.local['ansible-galaxy']('install',
-                                        '--roles-path', galaxy_path,
-                                        *galaxy_roles)
+        params = ['ansible-galaxy', 'install', '--roles-path', galaxy_path]
+        params.extend(galaxy_roles)
+        cli = GalaxyCLI(params)
+        # despite params is a CLI instance parameter
+        # argv must be overriden
+        argv_orig = sys.argv
+        try:
+            sys.argv = params
+            cli.parse()
+            cli.run()
+        finally:
+            sys.argv = argv_orig
     C.DEFAULT_ROLES_PATH = roles_path
     C.DEFAULT_HASH_BEHAVIOUR = 'merge'
 
