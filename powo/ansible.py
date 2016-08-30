@@ -125,9 +125,6 @@ def update(ctx, ask_become_pass, **kwargs):
     inventory = Inventory(loader=loader,
                           variable_manager=variable_manager,
                           host_list=['localhost'])
-    variable_manager.extra_vars = {
-        'ansible_python_interpreter': sys.executable,
-    }
     variable_manager.set_inventory(inventory)
 
     plugin = plugins[0]
