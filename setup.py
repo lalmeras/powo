@@ -14,8 +14,7 @@ requirements = [
     # https://github.com/ansible/ansible/issues/16015
     # minimal setuptools version needed
     'setuptools==11.3',
-    'Click>=6.0',
-    'plumbum>=1.6.2',
+    'Click>=6.0'
 ]
 
 test_requirements = [
