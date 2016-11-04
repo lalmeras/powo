@@ -153,7 +153,7 @@ def update(ctx, ask_become_pass, **kwargs):
                   loader=loader,
                   options=options,
                   passwords=passwords,
-                  stdout_callback=CallbackModule()
+                  stdout_callback='skippy'
         )
         tqm.run(play)
     finally:
