@@ -50,8 +50,10 @@ def load_plugins():
               flag_value=0, default=False)
 @click.option('--verbose', '-v', 'verbosity',
               flag_value=4, default=False)
+@click.option('--extra-vars', multiple=True,
+              help='ansible extra vars')
 @click.pass_context
-def run(ctx, config, verbosity, args=None):
+def run(ctx, config, verbosity, extra_vars, args=None):
     os.chdir('/')
     if verbosity is None:
         verbosity = 2
@@ -68,6 +70,7 @@ def run(ctx, config, verbosity, args=None):
         [os.path.normpath(os.path.join(os.path.dirname(config),
                                        os.path.expanduser(path)))
          for path in configuration['vars']]
+    configuration['extra_vars'] = extra_vars
     ctx.obj = {}
     ctx.obj['configuration'] = configuration
 
@@ -127,6 +130,13 @@ def update(ctx, ask_become_pass, **kwargs):
                           variable_manager=variable_manager,
                           host_list=['localhost'])
     variable_manager.set_inventory(inventory)
+    if ctx.obj['configuration']['extra_vars']:
+        extra_vars_wrapper = \
+            type('obj', (object,),
+                 {'extra_vars': ctx.obj['configuration']['extra_vars']})
+        extra_vars_wrapper.extra_vars = ctx.obj['configuration']['extra_vars']
+        variable_manager.extra_vars = \
+            utils.vars.load_extra_vars(loader, extra_vars_wrapper)
 
     plugin = plugins[0]
     playbooks = plugin.playbooks
