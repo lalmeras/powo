@@ -163,7 +163,7 @@ def update(ctx, ask_become_pass, **kwargs):
                   loader=loader,
                   options=options,
                   passwords=passwords,
-                  stdout_callback='skippy'
+                  stdout_callback='default'
         )
         tqm.run(play)
     finally:
