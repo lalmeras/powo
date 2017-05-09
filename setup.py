@@ -10,10 +10,8 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = [
-    'ansible==2.1.1.0',
-    # https://github.com/ansible/ansible/issues/16015
-    # minimal setuptools version needed
-    'setuptools==11.3',
+    'ansible==2.3.0',
+    'setuptools>=11.3',
     'Click>=6.0'
 ]
 
