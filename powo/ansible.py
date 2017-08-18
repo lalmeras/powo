@@ -76,10 +76,12 @@ def run(ctx, config, verbosity, extra_vars, args=None):
 
 
 @run.command()
+@click.option('--playbook', '-p', 'playbook_name', default=None,
+              help='playbook to launch')
 @click.option('--ask-become-pass', '-w', is_flag=True, default=False,
               help='ask for sudo password on command-line')
 @click.pass_context
-def update(ctx, ask_become_pass, **kwargs):
+def update(ctx, playbook_name, ask_become_pass, **kwargs):
     # load default ansible options
     parser = CLI.base_parser(connect_opts=True, meta_opts=True, runas_opts=True,
                              subset_opts=True, check_opts=True,
@@ -140,7 +142,16 @@ def update(ctx, ask_become_pass, **kwargs):
 
     plugin = plugins[0]
     playbooks = plugin.playbooks
-    playbook_path = playbooks[0]
+    playbook_path = None
+    if playbook_name is not None:
+        for path in playbooks:
+            if os.path.basename(path) == playbook_name:
+                playbook_path = path
+                break
+        if playbook_path == None:
+            raise Exception('playbook %s not found' % (playbook_name,))
+    else:
+        playbook_path = playbooks[0]
     playbook = loader.load_from_file(playbook_path)[0]
     playbook['vars_files'].extend(ctx.obj['configuration']['vars'])
     loader.set_basedir(os.path.dirname(playbook_path))
