@@ -12,7 +12,8 @@ with open('HISTORY.rst') as history_file:
 requirements = [
     'ansible==2.3.0',
     'setuptools>=11.3',
-    'Click>=6.0'
+    'Click>=6.0',
+    'backports.tempfile==1.0rc1'
 ]
 
 test_requirements = [

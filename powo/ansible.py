@@ -5,6 +5,7 @@ import os
 import os.path
 import pkg_resources
 import sys
+from backports import tempfile
 
 from ansible import constants as C
 from ansible.cli import CLI
@@ -61,6 +62,11 @@ def run(ctx, config, verbosity, extra_vars, args=None):
     configuration = {
         'vars': ['~/.powo/vars/config.yml']
     }
+    with tempfile.TemporaryDirectory() as tempdir:
+        ansible_config = os.path.join(tempdir, 'ansible.cfg')
+        with open(ansible_config, 'w') as stream:
+            pass
+        os.environ['ANSIBLE_CONFIG'] = ansible_config
     try:
         with open(config, 'r') as stream:
             configuration.update(yaml.load(stream))
