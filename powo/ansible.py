@@ -142,6 +142,7 @@ def update(ctx, playbook_name, ask_become_pass, **kwargs):
 [defaults]
 roles_path = {roles_path}
 hash_behaviour = merge
+stdout_callback = skippy
 
             """.format(roles_path=':'.join(roles_path))
             stream.write(configuration_content)
