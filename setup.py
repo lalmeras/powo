@@ -10,7 +10,7 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = [
-    'ansible==2.3.0',
+    'ansible==2.3.2.0',
     'setuptools>=11.3',
     'Click>=6.0',
     'backports.tempfile==1.0rc1'
