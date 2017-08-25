@@ -21,7 +21,7 @@ test_requirements = [
 
 setup(
     name='powo',
-    version='1.0.0rc',
+    version='1.0.0',
     description="powo installer",
     long_description=readme + '\n\n' + history,
     author="Laurent Almeras",
