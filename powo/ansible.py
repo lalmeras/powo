@@ -12,6 +12,7 @@ from backports import tempfile
 from ansible.module_utils._text import to_bytes
 
 import click
+import m9dicts
 import yaml
 
 from .model import PowoPlugin
@@ -48,7 +49,7 @@ def load_plugins():
 def run(ctx, config, verbosity, extra_vars, args=None):
     os.chdir('/')
     configuration = {}
-    configuration['extra_vars'] = {}
+    configuration['extra_vars'] = m9dicts.make()
     for i in extra_vars:
         configuration['extra_vars'].update(json.loads(i))
     ctx.obj = {}
