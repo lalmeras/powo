@@ -47,12 +47,13 @@ def load_plugins():
               help='ansible extra vars')
 @click.pass_context
 def run(ctx, config, verbosity, extra_vars, args=None):
+    ctx.obj = {}
+    ctx.obj['original_cwd'] = os.getcwd()
     os.chdir('/')
     configuration = {}
     configuration['extra_vars'] = m9dicts.make()
     for i in extra_vars:
         configuration['extra_vars'].update(json.loads(i))
-    ctx.obj = {}
     ctx.obj['configuration'] = configuration
 
 
@@ -88,7 +89,7 @@ def update(ctx, playbook_name, ask_become_pass, **kwargs):
         os.makedirs(galaxy_path)
     if len(galaxy_roles) > 0:
         roles_path.insert(0, galaxy_path)
-        galaxy_command = lookup_ansible_script('ansible-galaxy')
+        galaxy_command = lookup_ansible_script(ctx, 'ansible-galaxy')
         command_args = [galaxy_command[0]]
         command_env = dict(os.environ)
         command_env.update(galaxy_command[1])
@@ -120,7 +121,7 @@ def update(ctx, playbook_name, ask_become_pass, **kwargs):
     if plugin.on_run is not None:
         plugin.on_run(ctx, extra_vars)
 
-    command = lookup_ansible_script('ansible-playbook')
+    command = lookup_ansible_script(ctx, 'ansible-playbook')
     for key, value in command[1].items():
         os.putenv(key, value)
 
@@ -155,7 +156,7 @@ stdout_callback = skippy
         subprocess.check_call(ansible_playbook_args, env=ansible_env)
 
 
-def lookup_ansible_script(script):
+def lookup_ansible_script(ctx, script):
     found_script = None
     environment = {}
     # we consider it as a marker for a pex environment
@@ -166,7 +167,9 @@ def lookup_ansible_script(script):
         # in pex env, scripts can be found in EGG-INFO/scripts directory
         egg_info_script = os.path.join(parent, 'EGG-INFO', 'scripts', script)
         if os.path.exists(egg_info_script):
-            found_script = sys.argv[0]
+            found_script = os.path.normpath(
+                os.path.join(ctx.obj['original_cwd'], sys.argv[0])
+            )
             environment['PEX_SCRIPT'] = script
         else:
             print('Command "%s" not found in pex' % (script))
